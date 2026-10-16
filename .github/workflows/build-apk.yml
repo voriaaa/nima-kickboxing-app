@@ -33,6 +33,12 @@ jobs:
       - name: Set Persian app name
         run: sed -i 's/android:label="[^"]*"/android:label="باشگاه نیما افشار"/' android/app/src/main/AndroidManifest.xml
 
+      # اجازه‌ی باز کردن برنامه‌ی تماس (tel:) در اندروید ۱۱ به بالا
+      - name: Allow dialer intent
+        run: |
+          sed -i 's#<application#<queries><intent><action android:name="android.intent.action.DIAL"/><data android:scheme="tel"/></intent></queries>\n    <application#' android/app/src/main/AndroidManifest.xml
+          grep -c 'android.intent.action.DIAL' android/app/src/main/AndroidManifest.xml
+
       - run: flutter pub get
 
       - run: flutter test

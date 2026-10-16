@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/app_store.dart';
+import 'about_page.dart';
 import 'my_status_page.dart';
 import 'plans_page.dart';
 import 'timer_page.dart';
@@ -33,9 +34,16 @@ class _StudentShellState extends State<StudentShell> {
         actions: [
           PopupMenuButton<String>(
             onSelected: (v) {
-              if (v == 'logout') StoreScope.read(context).signOut();
+              if (v == 'about') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AboutPage()),
+                );
+              } else if (v == 'logout') {
+                StoreScope.read(context).signOut();
+              }
             },
             itemBuilder: (_) => const [
+              PopupMenuItem(value: 'about', child: Text('درباره‌ی باشگاه')),
               PopupMenuItem(value: 'logout', child: Text('خروج')),
             ],
           ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/app_store.dart';
+import 'about_page.dart';
 import 'attendance_page.dart';
 import 'fees_page.dart';
 import 'plans_page.dart';
@@ -41,9 +42,16 @@ class _CoachShellState extends State<CoachShell> {
         actions: [
           PopupMenuButton<String>(
             onSelected: (v) {
-              if (v == 'logout') StoreScope.read(context).signOut();
+              if (v == 'about') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AboutPage()),
+                );
+              } else if (v == 'logout') {
+                StoreScope.read(context).signOut();
+              }
             },
             itemBuilder: (_) => const [
+              PopupMenuItem(value: 'about', child: Text('درباره‌ی باشگاه')),
               PopupMenuItem(value: 'logout', child: Text('خروج')),
             ],
           ),

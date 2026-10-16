@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/app_store.dart';
 import '../util.dart';
+import 'about_page.dart';
 import 'coach_shell.dart';
 import 'student_shell.dart';
 
@@ -39,7 +40,7 @@ class RoleScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.sports_mma, size: 88, color: theme.colorScheme.primary),
+                const ClubPhoto(size: 200),
                 const SizedBox(height: 16),
                 Text('باشگاه کیک‌بوکس', style: theme.textTheme.titleLarge),
                 Text(
@@ -61,6 +62,10 @@ class RoleScreen extends StatelessWidget {
                   icon: const Icon(Icons.person),
                   label: const Text('ورود شاگرد'),
                 ),
+                const SizedBox(height: 24),
+                const PhoneTile(),
+                const SizedBox(height: 8),
+                const BuilderCredit(),
               ],
             ),
           ),
