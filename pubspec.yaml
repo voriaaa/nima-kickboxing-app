@@ -1,0 +1,24 @@
+name: nima_kickboxing
+description: اپ مدیریت باشگاه کیک‌بوکس نیما افشار (مربی و شاگرد)
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+  shared_preferences: ^2.3.0
+  shamsi_date: ^1.0.0
+  wakelock_plus: ^1.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
