@@ -68,3 +68,49 @@ jobs:
           tag_name: build-${{ github.run_number }}
           name: نسخه ${{ github.run_number }}
           files: nima-kickboxing.apk
+
+  # iPhone build. It is NOT signed (signing needs an Apple developer account),
+  # so the .ipa must be signed with your own Apple ID (AltStore / Sideloadly).
+  ios:
+    needs: apk
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare
+        run: bash tool/ci_prepare_ios.sh
+
+      - name: Build iOS (no codesign)
+        run: |
+          if ! flutter build ios --release --no-codesign > build.log 2>&1; then
+            grep -vE "^\s*$" build.log | tail -60 > tail.txt
+            split -l 7 tail.txt part_
+            for f in $(ls part_* | head -9); do
+              echo "::error::$(sed 's/%/%25/g' $f | sed ':a;N;$!ba;s/\n/%0A/g')"
+            done
+            exit 1
+          fi
+          tail -3 build.log
+
+      - name: Package IPA
+        run: |
+          mkdir Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qr nima-kickboxing-ios-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nima-kickboxing-ios
+          path: nima-kickboxing-ios-unsigned.ipa
+
+      - name: Attach to release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          files: nima-kickboxing-ios-unsigned.ipa

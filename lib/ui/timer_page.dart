@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../moves/moves.dart';
+import '../sound.dart';
 import '../theme.dart';
 import '../util.dart';
 
@@ -67,7 +68,6 @@ class _TimerPageState extends State<TimerPage> {
   }
 
   void _signal({required bool strong}) {
-    SystemSound.play(SystemSoundType.alert);
     if (strong) {
       HapticFeedback.heavyImpact();
     } else {
@@ -77,6 +77,12 @@ class _TimerPageState extends State<TimerPage> {
 
   void _enter(_Phase p) {
     final d = _durationOf(p);
+    // Bell: strikes once when a round starts, three times when it ends.
+    if (p == _Phase.work) {
+      _phase == _Phase.work ? Sfx.bellEnd() : Sfx.bellStart();
+    } else if (p == _Phase.rest) {
+      Sfx.bellEnd();
+    }
     setState(() {
       _phase = p;
       _phaseEnd = DateTime.now().add(d);
@@ -104,11 +110,13 @@ class _TimerPageState extends State<TimerPage> {
       _advance();
       return;
     }
-    if (_phase == _Phase.work &&
+    // 10 seconds before the end of a round or a rest
+    if ((_phase == _Phase.work || _phase == _Phase.rest) &&
         !_warned &&
-        _workSeconds > 20 &&
+        _durationOf(_phase).inSeconds > 20 &&
         left <= const Duration(seconds: 10)) {
       _warned = true;
+      Sfx.warn();
       _signal(strong: false);
     }
     if (_shadow && _phase == _Phase.work) {
@@ -148,6 +156,7 @@ class _TimerPageState extends State<TimerPage> {
     _ticker?.cancel();
     _wake(false);
     setState(() => _phase = _Phase.done);
+    Sfx.bellEnd();
     _signal(strong: true);
   }
 

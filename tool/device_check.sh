@@ -62,6 +62,9 @@ if [ "$(alive)" = yes ]; then
   tapxy "$(tabx 3)" "$NAVY"; shot d06_timer
   tapxy "$(tabx 4)" "$NAVY"; shot d07_club
   tapxy "$(tabx 0)" "$NAVY"; shot d08_home
+  # start the timer: after the 10 s get-ready phase the round bell plays (audio engine check)
+  tapxy "$(tabx 3)" "$NAVY"
+  tap "شروع تمرین" && sleep 14 && shot d09_timer_running
 fi
 echo "running at end: $(alive)" >> "$OUT/status.txt"
 

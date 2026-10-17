@@ -1,7 +1,7 @@
 name: nima_kickboxing
 description: اپ باشگاه کیک‌بوکس نیما افشار (مربی و شاگرد)
 publish_to: 'none'
-version: 0.2.0+2
+version: 0.3.0+3
 
 environment:
   sdk: ^3.5.0
@@ -16,6 +16,7 @@ dependencies:
   shamsi_date: ^1.0.0
   url_launcher: ^6.3.0
   wakelock_plus: ^1.2.0
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:
@@ -26,6 +27,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/sounds/
   fonts:
     - family: Vazirmatn
       fonts:
