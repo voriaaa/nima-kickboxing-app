@@ -17,4 +17,4 @@ done
 /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes array" "$PL" || true
 
 flutter pub get
-dart run flutter_launcher_icons -f flutter_launcher_icons-ios.yaml
+dart run flutter_launcher_icons -f tool/ios_icons.yaml
