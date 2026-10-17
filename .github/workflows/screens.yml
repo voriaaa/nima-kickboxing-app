@@ -1,0 +1,43 @@
+name: Screenshots
+
+# Renders screenshots of the main screens and pushes them to the `screens` branch.
+on:
+  workflow_dispatch:
+  push:
+    branches-ignore: [main, screens]
+
+permissions:
+  contents: write
+
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Render
+        run: |
+          flutter test --update-goldens tool/screenshots/screenshot_test.dart > shots.log 2>&1 || {
+            grep -vE "^\s*$" shots.log | tail -40 > t.txt; split -l 6 t.txt p_
+            for f in $(ls p_* | head -9); do echo "::error::$(sed 's/%/%25/g' $f | sed ':a;N;$!ba;s/\n/%0A/g')"; done
+            exit 1; }
+
+      - name: Push to screens branch
+        run: |
+          mkdir /tmp/out && cp tool/screenshots/goldens/*.png /tmp/out/
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout --orphan screens
+          git rm -rq --cached .
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp /tmp/out/*.png .
+          git add *.png
+          git commit -qm "Screenshots for ${GITHUB_SHA::7}"
+          git push -f origin screens
