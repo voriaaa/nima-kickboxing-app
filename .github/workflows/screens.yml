@@ -25,7 +25,7 @@ jobs:
       - name: Render
         run: |
           flutter test --update-goldens tool/screenshots/screenshot_test.dart > shots.log 2>&1 || {
-            grep -vE "^\s*$" shots.log | tail -40 > t.txt; split -l 6 t.txt p_
+            { grep -A 8 "The following" shots.log | head -30; grep -vE "^\s*$" shots.log | tail -20; } > t.txt; split -l 6 t.txt p_
             for f in $(ls p_* | head -9); do echo "::error::$(sed 's/%/%25/g' $f | sed ':a;N;$!ba;s/\n/%0A/g')"; done
             exit 1; }
 

@@ -43,6 +43,13 @@ class _TimerPageState extends State<TimerPage> {
   List<String> _call = const [];
   int _nextCallAt = 0; // seconds remaining in round when the next combo appears
 
+  /// Keeps the screen on; never lets a wakelock failure break the timer.
+  void _wake(bool on) {
+    try {
+      (on ? WakelockPlus.enable() : WakelockPlus.disable()).catchError((_) {});
+    } catch (_) {}
+  }
+
   bool get _running => _phase != _Phase.idle && _phase != _Phase.done;
 
   Duration _durationOf(_Phase p) {
@@ -82,7 +89,7 @@ class _TimerPageState extends State<TimerPage> {
   }
 
   void _start() {
-    WakelockPlus.enable();
+    _wake(true);
     _round = 1;
     _paused = false;
     _ticker?.cancel();
@@ -139,14 +146,14 @@ class _TimerPageState extends State<TimerPage> {
 
   void _finish() {
     _ticker?.cancel();
-    WakelockPlus.disable();
+    _wake(false);
     setState(() => _phase = _Phase.done);
     _signal(strong: true);
   }
 
   void _stop() {
     _ticker?.cancel();
-    WakelockPlus.disable();
+    _wake(false);
     setState(() {
       _phase = _Phase.idle;
       _paused = false;
@@ -167,7 +174,7 @@ class _TimerPageState extends State<TimerPage> {
   @override
   void dispose() {
     _ticker?.cancel();
-    WakelockPlus.disable();
+    _wake(false);
     super.dispose();
   }
 
