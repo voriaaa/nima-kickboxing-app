@@ -12,8 +12,15 @@ sed -i 's#<application#<queries><intent><action android:name="android.intent.act
 echo "--- AndroidManifest.xml ---"
 cat "$M"
 
-flutter pub get
-dart run flutter_launcher_icons
+# Failures are echoed as annotations so they can be read through the API.
+step() {
+  if ! "$@" > step.log 2>&1; then
+    tail -14 step.log | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g' | sed 's/^/::error::/'
+    exit 1
+  fi
+}
+step flutter pub get
+step dart run flutter_launcher_icons
 
 # Release builds are shrunk by R8. Keep plugin classes that are called from
 # Dart through JNI (shared_preferences crashed startup without this).
