@@ -161,7 +161,9 @@ class _SequenceTile extends StatelessWidget {
           side: BorderSide(color: active ? AppColors.cyan : AppColors.line),
         ),
       ),
-      child: ListTile(
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
         leading: Text('${index + 1}',
             style: display(28, color: active ? AppColors.cyan : AppColors.muted)),
         title: Text(move.nameFa, style: const TextStyle(fontWeight: FontWeight.w900)),
@@ -170,6 +172,7 @@ class _SequenceTile extends StatelessWidget {
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => MoveDetailPage(move: move)),
         ),
+      ),
       ),
     );
   }
