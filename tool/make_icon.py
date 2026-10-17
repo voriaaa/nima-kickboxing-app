@@ -1,53 +1,38 @@
-"""Builds the launcher icon from the high-kick pose. Run: python3 tool/make_icon.py"""
-import os, sys
-from PIL import Image, ImageDraw, ImageFilter
+"""Builds the launcher icon from the high-kick pose in the athlete style.
+Run: python3 tool/make_icon.py   (needs: pip install skia-python)"""
+import os
+import sys
+
+import skia
+
 sys.path.insert(0, os.path.dirname(__file__))
-from poses import MOVES, joints, L
+from figure_preview import draw  # noqa: E402
+from poses import MOVES  # noqa: E402
 
 S = 1024
-BLUE, CYAN, REAR = (46, 123, 255), (111, 231, 255), (30, 79, 166)
+HERE = os.path.join(os.path.dirname(__file__), "..", "assets", "icon")
+POSE = MOVES["rhigh"]["kfs"][-1]["pose"]
 
 
-def fighter_layer(scale, cx, cy):
-    p = MOVES["rhigh"]["kfs"][-1]["pose"]
-    j = joints(p)
-    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    dr = ImageDraw.Draw(img)
-    # centre the figure on its bounding box
-    pts = [v for v in j.values()]
-    xs = [q[0] for q in pts]; ys = [q[1] for q in pts]
-    mx, my = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
-    def P(q):
-        return (cx + (q[0] - mx) * scale, cy - (q[1] - my) * scale)
-    def seg(a, b, w, col):
-        w *= scale
-        dr.line([P(a), P(b)], fill=col, width=int(w))
-        for q in (a, b):
-            x, y = P(q); dr.ellipse([x - w/2, y - w/2, x + w/2, y + w/2], fill=col)
-    def dot(q, r, col):
-        x, y = P(q); r *= scale; dr.ellipse([x - r, y - r, x + r, y + r], fill=col)
-    seg(j["rh"], j["rk"], 11, CYAN); seg(j["rk"], j["ra"], 9, CYAN); seg(j["ra"], j["rtoe"], 6, CYAN)
-    seg(j["rs"], j["re"], 9, REAR); seg(j["re"], j["rw"], 8, REAR); dot(j["rw"], 8.5, REAR)
-    seg(j["hip"], j["neck"], 15, BLUE); dot(j["head"], L["head_r"], BLUE)
-    seg(j["lh"], j["lk"], 11, BLUE); seg(j["lk"], j["la"], 9, BLUE); seg(j["la"], j["ltoe"], 6, BLUE)
-    seg(j["ls"], j["le"], 9, BLUE); seg(j["le"], j["lw"], 8, BLUE); dot(j["lw"], 8.5, BLUE)
-    return img
+def make(path, background, ring_r, fig_size, fig_offset):
+    surf = skia.Surface(S, S)
+    c = surf.getCanvas()
+    c.clear(skia.ColorTRANSPARENT)
+    if background:
+        c.drawRect(skia.Rect.MakeWH(S, S), skia.Paint(Shader=skia.GradientShader.MakeRadial(
+            skia.Point(S / 2, S * 0.42), S * 0.75, [0xFF13264D, 0xFF05070D])))
+    ring = skia.Paint(Color=0xFF2E7BFF, AntiAlias=True, Style=skia.Paint.kStroke_Style, StrokeWidth=S * 0.022)
+    glow = skia.Paint(Color=0xAA2E7BFF, AntiAlias=True, Style=skia.Paint.kStroke_Style, StrokeWidth=S * 0.04,
+                      MaskFilter=skia.MaskFilter.MakeBlur(skia.kNormal_BlurStyle, S * 0.02))
+    c.drawCircle(S / 2, S / 2, ring_r, glow)
+    c.drawCircle(S / 2, S / 2, ring_r, ring)
+    c.save()
+    c.translate(S / 2 - fig_size / 2 + fig_offset[0], S / 2 - fig_size / 2 + fig_offset[1])
+    draw(c, POSE, (fig_size, fig_size), "rl")
+    c.restore()
+    surf.makeImageSnapshot().save(path, skia.kPNG)
 
 
-def compose(bg, ring_r, scale):
-    base = Image.new("RGBA", (S, S), bg)
-    ring = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    d = ImageDraw.Draw(ring)
-    c = S / 2
-    d.ellipse([c - ring_r, c - ring_r, c + ring_r, c + ring_r], outline=BLUE + (255,), width=int(S * 0.022))
-    fig = fighter_layer(scale, c, c + S * 0.01)
-    glow = Image.alpha_composite(ring, fig).filter(ImageFilter.GaussianBlur(S * 0.02))
-    out = Image.alpha_composite(base, glow)
-    out = Image.alpha_composite(out, ring)
-    return Image.alpha_composite(out, fig)
-
-
-here = os.path.join(os.path.dirname(__file__), "..", "assets", "icon")
-compose((5, 7, 13, 255), S * 0.40, S * 0.0040).save(os.path.join(here, "icon.png"))
-compose((0, 0, 0, 0), S * 0.30, S * 0.0029).save(os.path.join(here, "foreground.png"))
+make(os.path.join(HERE, "icon.png"), True, S * 0.40, S * 0.95, (S * 0.105, S * 0.02))
+make(os.path.join(HERE, "foreground.png"), False, S * 0.29, S * 0.68, (S * 0.075, S * 0.015))
 print("icons written")

@@ -33,8 +33,17 @@
 ```bash
 python3 tool/poses.py preview /tmp/preview   # تصویر همه‌ی ژست‌ها برای بررسی
 python3 tool/poses.py dart                   # بازسازی lib/moves/pose_data.g.dart
+python3 tool/figure_preview.py /tmp/f.png jab rhigh   # پیش‌نمایش ظاهر فیگور (pip install skia-python)
 python3 tool/make_icon.py                    # آیکن اپ از روی ژست های کیک
 ```
+
+ظاهر فیگور (بدن، شورت، دستکش، نور لبه) در `lib/moves/fighter.dart` و هم‌زمان در
+`tool/figure_preview.py` تعریف شده؛ هر تغییری باید در هر دو اعمال شود.
+
+## تست روی گوشی (شبیه‌ساز)
+
+گردش کار «Device test» با هر پوش، APK نهایی را روی شبیه‌ساز اندروید نصب و اجرا می‌کند،
+از صفحه‌ها عکس می‌گیرد و لاگ خطا را در شاخه‌ی `device` می‌گذارد.
 
 ## ساختار
 
