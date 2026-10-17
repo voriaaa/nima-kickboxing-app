@@ -42,7 +42,7 @@ class _AttendancePageState extends State<AttendancePage> {
           child: Align(
             alignment: AlignmentDirectional.centerStart,
             child: Text(
-              'حاضر: ${toFa(presentCount)} از ${toFa(students.length)}',
+              'حاضر: $presentCount از ${students.length}',
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),

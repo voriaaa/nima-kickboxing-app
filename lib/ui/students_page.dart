@@ -114,7 +114,7 @@ class _StudentFormPageState extends State<StudentFormPage> {
     _weight = TextEditingController(
         text: s?.weightKg == null ? '' : fmtNum(s!.weightKg!));
     _fee = TextEditingController(
-        text: (s == null || s.monthlyFee == 0) ? '' : toFa(s.monthlyFee));
+        text: (s == null || s.monthlyFee == 0) ? '' : '${s.monthlyFee}');
     _notes = TextEditingController(text: s?.notes ?? '');
     _level = s?.level ?? 0;
   }

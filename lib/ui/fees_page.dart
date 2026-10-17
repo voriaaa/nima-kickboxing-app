@@ -176,7 +176,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
     final s = store.studentById(widget.studentId);
     if (s != null) {
       final rem = s.monthlyFee - store.paidFor(s.id, widget.month);
-      if (rem > 0) _amount.text = toFa(rem);
+      if (rem > 0) _amount.text = '$rem';
     }
   }
 

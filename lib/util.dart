@@ -15,7 +15,7 @@ const faMonths = [
   'اسفند',
 ];
 
-/// کلید = DateTime.weekday (دوشنبه ۱ ... یکشنبه ۷)
+/// Key = DateTime.weekday (Monday 1 ... Sunday 7)
 const faWeekdays = <int, String>{
   6: 'شنبه',
   7: 'یکشنبه',
@@ -26,20 +26,12 @@ const faWeekdays = <int, String>{
   5: 'جمعه',
 };
 
-/// ترتیب هفته‌ی ایرانی، از شنبه تا جمعه
+/// Iranian week order, Saturday to Friday
 const weekOrder = [6, 7, 1, 2, 3, 4, 5];
 
 String two(int n) => n.toString().padLeft(2, '0');
 
-/// ارقام انگلیسی را به فارسی تبدیل می‌کند.
-String toFa(Object value) {
-  const fa = '۰۱۲۳۴۵۶۷۸۹';
-  return value
-      .toString()
-      .replaceAllMapped(RegExp(r'[0-9]'), (m) => fa[int.parse(m[0]!)]);
-}
-
-/// ارقام فارسی و عربی را به انگلیسی تبدیل می‌کند (برای خواندن ورودی کاربر).
+/// Converts Persian and Arabic digits typed by the user to English digits.
 String toEn(String s) {
   const fa = '۰۱۲۳۴۵۶۷۸۹';
   const ar = '٠١٢٣٤٥٦٧٨٩';
@@ -70,31 +62,31 @@ double? parseDouble(String text) {
   return double.tryParse(cleaned);
 }
 
-/// عدد اعشاری بدون «.۰» اضافه: ۷۲ یا ۷۲.۵
+/// 72 or 72.5 (no trailing .0)
 String fmtNum(double v) =>
-    toFa(v == v.roundToDouble() ? v.toInt().toString() : v.toString());
+    v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
-/// مبلغ با جداکننده‌ی هزارگان و ارقام فارسی
+/// Amount with thousands separators: 1,250,000
 String money(int v) {
   final s = v.abs().toString();
   final b = StringBuffer();
   for (var i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 == 0) b.write('٬');
+    if (i > 0 && (s.length - i) % 3 == 0) b.write(',');
     b.write(s[i]);
   }
-  return toFa(v < 0 ? '-$b' : b.toString());
+  return v < 0 ? '-$b' : b.toString();
 }
 
-/// کلید روز میلادی برای ذخیره‌سازی: 2026-10-16
+/// Storage key for a day: 2026-10-16
 String dateKey(DateTime d) => '${d.year}-${two(d.month)}-${two(d.day)}';
 
-/// تاریخ شمسی خوانا؛ مثل ۲۴ مهر ۱۴۰۵
+/// Readable Jalali date, e.g. 24 مهر 1405
 String jalaliLabel(DateTime d) {
   final j = Jalali.fromDateTime(d);
-  return '${toFa(j.day)} ${faMonths[j.month - 1]} ${toFa(j.year)}';
+  return '${j.day} ${faMonths[j.month - 1]} ${j.year}';
 }
 
-/// کلید ماه شمسی؛ مثل 1405/07
+/// Jalali month key, e.g. 1405/07
 String monthKey(DateTime d) {
   final j = Jalali.fromDateTime(d);
   return '${j.year}/${two(j.month)}';
@@ -104,7 +96,7 @@ String monthLabel(String key) {
   final p = key.split('/');
   final y = int.parse(p[0]);
   final m = int.parse(p[1]);
-  return '${faMonths[m - 1]} ${toFa(y)}';
+  return '${faMonths[m - 1]} $y';
 }
 
 String shiftMonth(String key, int delta) {
@@ -114,3 +106,7 @@ String shiftMonth(String key, int delta) {
   final idx = y * 12 + (m - 1) + delta;
   return '${idx ~/ 12}/${two(idx % 12 + 1)}';
 }
+
+/// mm:ss
+String mmss(int totalSeconds) =>
+    '${two(totalSeconds ~/ 60)}:${two(totalSeconds % 60)}';

@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'data/app_store.dart';
-import 'ui/root.dart';
+import 'theme.dart';
+import 'ui/app_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: AppColors.surface,
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
   final store = AppStore();
   await store.load();
   runApp(NimaApp(store: store));
@@ -30,14 +38,8 @@ class NimaApp extends StatelessWidget {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFFD32F2F),
-            brightness: Brightness.dark,
-          ),
-        ),
-        home: const RootGate(),
+        theme: buildTheme(),
+        home: const AppShell(),
       ),
     );
   }

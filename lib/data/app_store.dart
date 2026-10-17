@@ -16,8 +16,6 @@ import '../util.dart';
 class AppStore extends ChangeNotifier {
   static const _dataKey = 'nima_data_v1';
   static const _pinKey = 'nima_coach_pin';
-  static const _roleKey = 'nima_role';
-  static const _meKey = 'nima_me';
 
   late final SharedPreferences _prefs;
   int _idCounter = 0;
@@ -32,9 +30,8 @@ class AppStore extends ChangeNotifier {
 
   String? coachPin;
 
-  /// 'coach' یا 'student' یا null (هنوز وارد نشده)
-  String? role;
-  String? meId;
+  /// Coach panel is unlocked for this app session only.
+  bool coachUnlocked = false;
 
   String newId() =>
       '${DateTime.now().microsecondsSinceEpoch}-${_idCounter++}';
@@ -42,8 +39,6 @@ class AppStore extends ChangeNotifier {
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
     coachPin = _prefs.getString(_pinKey);
-    role = _prefs.getString(_roleKey);
-    meId = _prefs.getString(_meKey);
 
     final raw = _prefs.getString(_dataKey);
     if (raw == null) return;
@@ -97,27 +92,13 @@ class AppStore extends ChangeNotifier {
     await _prefs.setString(_pinKey, pin);
   }
 
-  Future<void> signInCoach() async {
-    role = 'coach';
-    meId = null;
-    await _prefs.setString(_roleKey, 'coach');
-    await _prefs.remove(_meKey);
+  void unlockCoach() {
+    coachUnlocked = true;
     notifyListeners();
   }
 
-  Future<void> signInStudent(String studentId) async {
-    role = 'student';
-    meId = studentId;
-    await _prefs.setString(_roleKey, 'student');
-    await _prefs.setString(_meKey, studentId);
-    notifyListeners();
-  }
-
-  Future<void> signOut() async {
-    role = null;
-    meId = null;
-    await _prefs.remove(_roleKey);
-    await _prefs.remove(_meKey);
+  void lockCoach() {
+    coachUnlocked = false;
     notifyListeners();
   }
 
