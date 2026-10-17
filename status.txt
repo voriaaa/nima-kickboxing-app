@@ -1,0 +1,4 @@
+running after launch: yes
+screen 1080 x 2400 @ 420 dpi
+running at end: yes
+storage ok

@@ -1,0 +1,7 @@
+Starting: Intent { cmp=ir.nimaafshar.nima_kickboxing/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: ir.nimaafshar.nima_kickboxing/.MainActivity
+TotalTime: 6992
+WaitTime: 7034
+Complete
