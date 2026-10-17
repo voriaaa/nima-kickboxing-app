@@ -28,9 +28,11 @@ cat > android/app/proguard-rules.pro <<'PRO'
 -keep class io.flutter.plugins.** { *; }
 -keep class dev.fluttercommunity.** { *; }
 -keep class com.github.dart_lang.jni.** { *; }
+-keep class kotlin.** { *; }
 -keep class kotlin.coroutines.** { *; }
 -keep class kotlinx.coroutines.** { *; }
 -dontwarn io.flutter.embedding.**
+-dontwarn kotlin.**
 PRO
 G=android/app/build.gradle.kts
 if ! grep -q "proguard-rules.pro" "$G"; then

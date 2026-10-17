@@ -69,7 +69,8 @@ fi
 echo "running at end: $(alive)" >> "$OUT/status.txt"
 
 adb logcat -d > "$OUT/logcat.txt"
-grep -E " E flutter|AndroidRuntime|FATAL EXCEPTION" "$OUT/logcat.txt" \
+grep -q "storage unavailable" "$OUT/logcat.txt" && echo "STORAGE BROKEN" >> "$OUT/status.txt" || echo "storage ok" >> "$OUT/status.txt"
+grep -E " E flutter|FATAL EXCEPTION|storage unavailable" "$OUT/logcat.txt" \
   | grep -v "ResourcesCompat\|ExternalEnable" | head -60 > "$OUT/errors.txt" || true
 cat "$OUT/status.txt"
 exit 0
