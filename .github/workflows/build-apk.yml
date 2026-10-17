@@ -41,9 +41,30 @@ jobs:
       - name: Launcher icon
         run: dart run flutter_launcher_icons
 
+      # Errors are also posted as annotations (readable through the API).
+      - name: Analyze
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings > analyze.txt 2>&1 || true
+          tail -3 analyze.txt
+          grep -E "^\s*error " analyze.txt | head -45 > errors.txt || true
+          split -l 5 errors.txt chunk_ || true
+          for f in $(ls chunk_* 2>/dev/null | head -9); do
+            echo "::error::$(sed 's/%/%25/g' $f | sed ':a;N;$!ba;s/\n/%0A/g')"
+          done
+
       - run: flutter test
 
-      - run: flutter build apk --release
+      - name: Build release APK
+        run: |
+          if ! flutter build apk --release > build.log 2>&1; then
+            grep -vE "^\s*$" build.log | tail -60 > tail.txt
+            split -l 7 tail.txt part_
+            for f in $(ls part_* | head -9); do
+              echo "::error::$(sed 's/%/%25/g' $f | sed ':a;N;$!ba;s/\n/%0A/g')"
+            done
+            exit 1
+          fi
+          tail -3 build.log
 
       - name: Rename APK
         run: cp build/app/outputs/flutter-apk/app-release.apk nima-kickboxing.apk
