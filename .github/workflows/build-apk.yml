@@ -25,21 +25,8 @@ jobs:
           cache: true
 
       # The android/ folder is not in the repo; it is generated here.
-      - name: Generate Android project files
-        run: flutter create . --platforms=android --org ir.nimaafshar --project-name nima_kickboxing
-
-      - name: App name and link permissions
-        run: |
-          M=android/app/src/main/AndroidManifest.xml
-          sed -i 's/android:label="[^"]*"/android:label="باشگاه نیما افشار"/' $M
-          # Android 11+ needs to know which apps we open (browser/Instagram/Telegram, dialer, SMS)
-          sed -i 's#<application#<queries><intent><action android:name="android.intent.action.VIEW"/><data android:scheme="https"/></intent><intent><action android:name="android.intent.action.DIAL"/><data android:scheme="tel"/></intent><intent><action android:name="android.intent.action.SENDTO"/><data android:scheme="sms"/></intent></queries>\n    <application#' $M
-          grep -c 'android.intent.action.DIAL' $M
-
-      - run: flutter pub get
-
-      - name: Launcher icon
-        run: dart run flutter_launcher_icons
+      - name: Prepare
+        run: bash tool/ci_prepare.sh
 
       # Errors are also posted as annotations (readable through the API).
       - name: Analyze
