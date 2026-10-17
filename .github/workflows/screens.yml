@@ -30,14 +30,16 @@ jobs:
             exit 1; }
 
       - name: Push to screens branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir /tmp/out && cp tool/screenshots/goldens/*.png /tmp/out/
+          set -e
+          files=$(find . -path ./build -prune -o -name '*.png' -path '*goldens*' -print)
+          echo "::notice::found $(echo "$files" | wc -l) screenshots"
+          mkdir -p /tmp/shots && cp $files /tmp/shots/
+          cd /tmp/shots
+          git init -q -b screens
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git checkout --orphan screens
-          git rm -rq --cached .
-          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp /tmp/out/*.png .
-          git add *.png
-          git commit -qm "Screenshots for ${GITHUB_SHA::7}"
-          git push -f origin screens
+          git add . && git commit -qm "Screenshots for ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" screens 2>&1 | tail -3 || { echo "::error::push failed"; exit 1; }
