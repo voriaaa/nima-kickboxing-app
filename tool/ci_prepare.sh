@@ -14,3 +14,47 @@ cat "$M"
 
 flutter pub get
 dart run flutter_launcher_icons
+
+# Release builds are shrunk by R8. Keep plugin classes that are called from
+# Dart through JNI (shared_preferences crashed startup without this).
+cat > android/app/proguard-rules.pro <<'PRO'
+-keep class io.flutter.plugins.** { *; }
+-keep class dev.fluttercommunity.** { *; }
+-keep class com.github.dart_lang.jni.** { *; }
+-keep class kotlin.coroutines.** { *; }
+-keep class kotlinx.coroutines.** { *; }
+-dontwarn io.flutter.embedding.**
+PRO
+G=android/app/build.gradle.kts
+if ! grep -q "proguard-rules.pro" "$G"; then
+  # add the rules file to the release build type
+  sed -i 's#signingConfig = signingConfigs.getByName("debug")#signingConfig = signingConfigs.getByName("debug")\n            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")#' "$G"
+fi
+echo "--- build.gradle.kts (buildTypes) ---"
+grep -n -A6 "buildTypes" "$G"
+
+# Dark splash screen instead of white
+R=android/app/src/main/res
+mkdir -p $R/values $R/values-v31
+cat > $R/values/splash_colors.xml <<'XML'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="splash_bg">#05070D</color>
+</resources>
+XML
+for f in $R/drawable/launch_background.xml $R/drawable-v21/launch_background.xml; do
+  [ -f "$f" ] && sed -i 's#@android:color/white#@color/splash_bg#; s#?android:colorBackground#@color/splash_bg#' "$f"
+done
+cat > $R/values-v31/styles.xml <<'XML'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_bg</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/splash_bg</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/splash_bg</item>
+    </style>
+</resources>
+XML

@@ -17,7 +17,11 @@ class AppStore extends ChangeNotifier {
   static const _dataKey = 'nima_data_v1';
   static const _pinKey = 'nima_coach_pin';
 
-  late final SharedPreferences _prefs;
+  /// Null when storage is unavailable; the app then works in memory only.
+  SharedPreferences? _prefs;
+
+  /// False if the phone's storage could not be opened.
+  bool storageOk = true;
   int _idCounter = 0;
 
   final List<Student> students = [];
@@ -37,10 +41,19 @@ class AppStore extends ChangeNotifier {
       '${DateTime.now().microsecondsSinceEpoch}-${_idCounter++}';
 
   Future<void> load() async {
-    _prefs = await SharedPreferences.getInstance();
-    coachPin = _prefs.getString(_pinKey);
+    try {
+      _prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 5));
+    } catch (e) {
+      // Never block startup on storage.
+      debugPrint('storage unavailable: $e');
+      storageOk = false;
+      return;
+    }
+    final prefs = _prefs!;
+    coachPin = prefs.getString(_pinKey);
 
-    final raw = _prefs.getString(_dataKey);
+    final raw = prefs.getString(_dataKey);
     if (raw == null) return;
     try {
       final j = jsonDecode(raw) as Map<String, dynamic>;
@@ -58,7 +71,7 @@ class AppStore extends ChangeNotifier {
       });
     } catch (_) {
       // داده خراب بود: نسخه‌ی خام را نگه می‌داریم تا با ذخیره‌ی بعدی از بین نرود.
-      await _prefs.setString('${_dataKey}_corrupt', raw);
+      await prefs.setString('${_dataKey}_corrupt', raw);
       students.clear();
       attendance.clear();
       payments.clear();
@@ -75,7 +88,11 @@ class AppStore extends ChangeNotifier {
       'plans': plans.map((e) => e.toJson()).toList(),
       'announcements': announcements.map((e) => e.toJson()).toList(),
     };
-    await _prefs.setString(_dataKey, jsonEncode(data));
+    try {
+      await _prefs?.setString(_dataKey, jsonEncode(data));
+    } catch (e) {
+      debugPrint('save failed: $e');
+    }
   }
 
   void _commit() {
@@ -89,7 +106,11 @@ class AppStore extends ChangeNotifier {
 
   Future<void> setCoachPin(String pin) async {
     coachPin = pin;
-    await _prefs.setString(_pinKey, pin);
+    try {
+      await _prefs?.setString(_pinKey, pin);
+    } catch (e) {
+      debugPrint('save pin failed: $e');
+    }
   }
 
   void unlockCoach() {

@@ -94,13 +94,13 @@ MOVES = {
     ], arrows=[((-34, 30), (24, 6), (86, 58))]),
 
     "midkick": dict(limb="rl", kfs=[
-        kf("چرخش", 230, 0, hx=2, t=96, rt=-22, rs=-125, rfo=-60, **STAND_ON_LEAD),
+        kf("بالا آوردن زانو", 230, 0, hx=2, t=96, rt=-8, rs=-100, rfo=-50, **STAND_ON_LEAD),
         kf("ضربه", 230, 150, hx=4, t=110, rt=4, rs=6, rfo=4,
            **STAND_ON_LEAD, **REAR_ARM_SWING),
     ], arrows=[((-34, 40), (30, 20), (96, 92))]),
 
     "rhigh": dict(limb="rl", kfs=[
-        kf("چرخش", 240, 0, hx=2, t=100, rt=-15, rs=-90, rfo=-30, **STAND_ON_LEAD),
+        kf("بالا آوردن زانو", 240, 0, hx=2, t=100, rt=10, rs=-92, rfo=-40, **STAND_ON_LEAD),
         kf("ضربه", 240, 160, hx=2, t=122, rt=42, rs=46, rfo=46,
            **STAND_ON_LEAD, **REAR_ARM_SWING),
     ], arrows=[((-34, 50), (40, 34), (92, 150))]),

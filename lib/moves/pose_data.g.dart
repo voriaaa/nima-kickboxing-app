@@ -110,8 +110,8 @@ const moveClips = <String, MoveClip>{
   'midkick': MoveClip(
     limb: Limb.rearLeg,
     keyframes: [
-      Keyframe('چرخش', 230, 0,
-          Pose(hx: 2.0, hy: 84.0, t: 96.0, lt: -88.0, ls: -93.0, lfo: -5.0, rt: -22.0, rs: -125.0, rfo: -60.0)),
+      Keyframe('بالا آوردن زانو', 230, 0,
+          Pose(hx: 2.0, hy: 84.0, t: 96.0, lt: -88.0, ls: -93.0, lfo: -5.0, rt: -8.0, rs: -100.0, rfo: -50.0)),
       Keyframe('ضربه', 230, 150,
           Pose(hx: 4.0, hy: 84.0, t: 110.0, ru: -128.0, rf: -112.0, lt: -88.0, ls: -93.0, lfo: -5.0, rt: 4.0, rs: 6.0, rfo: 4.0)),
     ],
@@ -122,8 +122,8 @@ const moveClips = <String, MoveClip>{
   'rhigh': MoveClip(
     limb: Limb.rearLeg,
     keyframes: [
-      Keyframe('چرخش', 240, 0,
-          Pose(hx: 2.0, hy: 84.0, t: 100.0, lt: -88.0, ls: -93.0, lfo: -5.0, rt: -15.0, rs: -90.0, rfo: -30.0)),
+      Keyframe('بالا آوردن زانو', 240, 0,
+          Pose(hx: 2.0, hy: 84.0, t: 100.0, lt: -88.0, ls: -93.0, lfo: -5.0, rt: 10.0, rs: -92.0, rfo: -40.0)),
       Keyframe('ضربه', 240, 160,
           Pose(hx: 2.0, hy: 84.0, t: 122.0, ru: -128.0, rf: -112.0, lt: -88.0, ls: -93.0, lfo: -5.0, rt: 42.0, rs: 46.0, rfo: 46.0)),
     ],

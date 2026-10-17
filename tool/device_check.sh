@@ -43,18 +43,30 @@ PY
   return 1
 }
 
+SIZE=$(adb shell wm size | grep -oE "[0-9]+x[0-9]+" | tail -1)
+W=${SIZE%x*}; H=${SIZE#*x}
+DENS=$(adb shell wm density | grep -oE "[0-9]+" | tail -1)
+echo "screen $W x $H @ $DENS dpi" >> "$OUT/status.txt"
+# bottom nav: 5 tabs, right-to-left (home is right-most), ~68dp tall above the gesture bar
+NAVY=$(( H - (48 + 34) * DENS / 160 ))
+tabx() { echo $(( W * (9 - 2 * $1) / 10 )); }   # 0=home .. 4=club
+tapxy() { adb shell input tap "$1" "$2"; sleep 3; }
+
 if [ "$(alive)" = yes ]; then
-  tap "آموزش" && shot d02_techniques
-  tap "JAB" && sleep 2 && shot d03_move_detail && adb shell input keyevent 4 && sleep 2
-  tap "کمبو" && shot d04_combos
-  tap "تایمر" && shot d05_timer
-  tap "باشگاه" && shot d06_club
-  tap "خانه" && shot d07_home_again
+  tapxy "$(tabx 1)" "$NAVY"; shot d02_techniques
+  tapxy $(( W * 3 / 4 )) $(( H * 30 / 100 )); sleep 2; shot d03_move_detail
+  adb shell input keyevent 4; sleep 2
+  tapxy "$(tabx 2)" "$NAVY"; shot d04_combos
+  tapxy $(( W / 2 )) $(( H * 38 / 100 )); sleep 3; shot d05_combo_detail
+  adb shell input keyevent 4; sleep 2
+  tapxy "$(tabx 3)" "$NAVY"; shot d06_timer
+  tapxy "$(tabx 4)" "$NAVY"; shot d07_club
+  tapxy "$(tabx 0)" "$NAVY"; shot d08_home
 fi
 echo "running at end: $(alive)" >> "$OUT/status.txt"
 
 adb logcat -d > "$OUT/logcat.txt"
-grep -E "FATAL|AndroidRuntime|E/flutter|E/MethodChannel|Exception|Error" "$OUT/logcat.txt" \
+grep -E " E flutter|AndroidRuntime|FATAL EXCEPTION" "$OUT/logcat.txt" \
   | grep -v "ResourcesCompat\|ExternalEnable" | head -60 > "$OUT/errors.txt" || true
 cat "$OUT/status.txt"
 exit 0

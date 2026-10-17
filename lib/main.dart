@@ -15,7 +15,12 @@ Future<void> main() async {
     systemNavigationBarIconBrightness: Brightness.light,
   ));
   final store = AppStore();
-  await store.load();
+  try {
+    await store.load();
+  } catch (e) {
+    // The app must always open, even if saved data can't be read.
+    debugPrint('load failed: $e');
+  }
   runApp(NimaApp(store: store));
 }
 

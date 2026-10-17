@@ -107,7 +107,7 @@ class MoveClip {
 
 // ------------------------------------------------------------------ geometry
 
-const _torso = 52.0, _shoulder = 47.0, _neckHead = 19.0, _headR = 11.0;
+const _torso = 52.0, _shoulder = 47.0, _neckHead = 19.0;
 const _upper = 30.0, _fore = 28.0, _thigh = 44.0, _shin = 42.0, _foot = 14.0;
 
 /// Visible model area: x0, y0, x1, y1 (y up).
@@ -166,12 +166,15 @@ class Joints {
 // ------------------------------------------------------------------ timeline
 
 class _Seg {
-  _Seg(this.from, this.to, this.start, this.dur, this.clip, this.label);
+  _Seg(this.from, this.to, this.start, this.dur, this.clip, this.label, this.impact);
 
   final Pose from, to;
   final double start, dur;
   final int clip;
   final String label;
+
+  /// True for the hold right after the final (impact) keyframe of a clip.
+  final bool impact;
 }
 
 /// A list of clips played one after another, each returning to guard.
@@ -184,17 +187,21 @@ class FighterTimeline {
   }) {
     var t = 0.0;
     var cur = guardPose;
-    void add(Pose to, double dur, int clip, String label) {
-      _segs.add(_Seg(cur, to, t, dur, clip, label));
+    void add(Pose to, double dur, int clip, String label, {bool impact = false}) {
+      _segs.add(_Seg(cur, to, t, dur, clip, label, impact));
       t += dur;
       cur = to;
     }
 
     add(guardPose, leadIn, -1, '');
     for (var i = 0; i < clips.length; i++) {
-      for (final k in clips[i].keyframes) {
-        add(k.pose, k.ms.toDouble(), i, k.label);
-        if (k.hold > 0) add(k.pose, k.hold.toDouble(), i, k.label);
+      final kfs = clips[i].keyframes;
+      for (var k = 0; k < kfs.length; k++) {
+        add(kfs[k].pose, kfs[k].ms.toDouble(), i, kfs[k].label);
+        final last = k == kfs.length - 1;
+        if (kfs[k].hold > 0) {
+          add(kfs[k].pose, kfs[k].hold.toDouble(), i, kfs[k].label, impact: last);
+        }
       }
       add(guardPose, returnMs, i, '');
     }
@@ -218,7 +225,7 @@ class FighterTimeline {
     final s = _segAt(ms);
     if (s.dur <= 0) return s.to;
     final u = ((ms - s.start) / s.dur).clamp(0.0, 1.0);
-    final striking = s.to != guardPose;
+    final striking = !identical(s.to, guardPose);
     final e = striking
         ? Curves.easeOutCubic.transform(u)
         : Curves.easeInOutCubic.transform(u);
@@ -228,9 +235,248 @@ class FighterTimeline {
   int clipAt(double ms) => _segAt(ms).clip;
 
   String labelAt(double ms) => _segAt(ms).label;
+
+  /// 1 right at impact, fading to 0 over the impact hold; 0 elsewhere.
+  double impactAt(double ms) {
+    final s = _segAt(ms);
+    if (!s.impact || s.dur <= 0) return 0;
+    return 1 - ((ms - s.start) / s.dur).clamp(0.0, 1.0);
+  }
 }
 
-// ------------------------------------------------------------------ painter
+// ------------------------------------------------------------------ drawing
+// Mirrors tool/figure_preview.py. Everything is drawn in model space (y up).
+
+const _gapColor = Color(0xFF060A15);
+const _leadA = Color(0xFF5AA9FF), _leadB = Color(0xFF1F55C9);
+const _rearA = Color(0xFF2A5FB8), _rearB = Color(0xFF0E2A66);
+const _bodyA = Color(0xFF4E9BFF), _bodyB = Color(0xFF1A47AE);
+const _actA = Color(0xFFB8F6FF), _actB = Color(0xFF2FC4FF);
+const _shorts = Color(0xFF0A1020), _shortsRear = Color(0xFF060A14);
+const _stripe = Color(0xFF6FE7FF);
+const _gloveA = Color(0xFFFF5A5F), _gloveB = Color(0xFFB3121D);
+const _gloveRA = Color(0xFFC23A40), _gloveRB = Color(0xFF6E0A12);
+const _lightA = Offset(100, 180), _lightB = Offset(-30, 10);
+
+Offset _add(Offset p, Offset v, [double s = 1]) => p + v * s;
+
+/// Tapered capsule: hull of two circles, built from two lines and two arcs.
+Path _capsule(Offset a, double ra, Offset b, double rb) {
+  final dx = b.dx - a.dx, dy = b.dy - a.dy;
+  final dist = math.sqrt(dx * dx + dy * dy);
+  final path = Path();
+  if (dist < 1e-3 || dist <= (ra - rb).abs() + 1e-3) {
+    final c = ra >= rb ? a : b;
+    return path..addOval(Rect.fromCircle(center: c, radius: math.max(ra, rb)));
+  }
+  final th = math.atan2(dy, dx);
+  final phi = math.acos(((ra - rb) / dist).clamp(-1.0, 1.0));
+  path.moveTo(a.dx + ra * math.cos(th + phi), a.dy + ra * math.sin(th + phi));
+  path.lineTo(b.dx + rb * math.cos(th + phi), b.dy + rb * math.sin(th + phi));
+  path.arcTo(Rect.fromCircle(center: b, radius: rb), th + phi, -2 * phi, false);
+  path.lineTo(a.dx + ra * math.cos(th - phi), a.dy + ra * math.sin(th - phi));
+  path.arcTo(Rect.fromCircle(center: a, radius: ra), th - phi,
+      -(2 * math.pi - 2 * phi), false);
+  path.close();
+  return path;
+}
+
+Path _union(List<Path> paths) {
+  var out = paths.first;
+  for (final p in paths.skip(1)) {
+    out = Path.combine(PathOperation.union, out, p);
+  }
+  return out;
+}
+
+/// Closed Catmull-Rom curve through [pts].
+Path _smoothClosed(List<Offset> pts) {
+  final n = pts.length;
+  final path = Path()..moveTo(pts[0].dx, pts[0].dy);
+  for (var i = 0; i < n; i++) {
+    final p0 = pts[(i - 1 + n) % n], p1 = pts[i];
+    final p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+    final c1 = p1 + (p2 - p0) / 6;
+    final c2 = p2 - (p3 - p1) / 6;
+    path.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p2.dx, p2.dy);
+  }
+  return path..close();
+}
+
+Path _profile(Offset hip, double t, List<List<double>> prof) {
+  final u = _dir(t), n = _dir(t - 90);
+  final front = [for (final r in prof) hip + u * r[0] + n * r[1]];
+  final back = [for (final r in prof) hip + u * r[0] - n * r[2]];
+  return _smoothClosed([...front, ...back.reversed]);
+}
+
+Path _line(Offset a, Offset b) => Path()
+  ..moveTo(a.dx, a.dy)
+  ..lineTo(b.dx, b.dy);
+
+class _Stripe {
+  const _Stripe(this.path, this.color, this.width);
+  final Path path;
+  final Color color;
+  final double width;
+}
+
+class _Part {
+  _Part(this.path, this.ca, this.cb, this.rim,
+      {this.glow = false, this.stripes = const [], this.after = const []});
+
+  final Path path;
+  final Color ca, cb, rim;
+  final bool glow;
+  final List<_Stripe> stripes;
+
+  /// Strokes drawn unclipped after this part (headband tails).
+  final List<_Stripe> after;
+}
+
+List<_Part> _buildParts(Pose p, Limb? active) {
+  final j = Joints(p);
+  final parts = <_Part>[];
+  final u = _dir(p.t);
+  final fw = _dir(p.t - 90);
+
+  (Color, Color, Color, bool) cols(bool lead, Limb limb) {
+    if (active == limb) return (_actA, _actB, Colors.white, true);
+    return lead
+        ? (_leadA, _leadB, const Color(0xFFA8F0FF), false)
+        : (_rearA, _rearB, const Color(0xFF5B95E0), false);
+  }
+
+  void leg(bool lead) {
+    final h = lead ? j.lHip : j.rHip;
+    final k = lead ? j.lKnee : j.rKnee;
+    final a = lead ? j.lAnkle : j.rAnkle;
+    final toe = lead ? j.lToe : j.rToe;
+    final ta = lead ? p.lt : p.rt;
+    final sa = lead ? p.ls : p.rs;
+    final fa = lead ? p.lfo : p.rfo;
+    final ts = lead ? p.lts : p.rts;
+    final ss = lead ? p.lss : p.rss;
+    final c = cols(lead, lead ? Limb.leadLeg : Limb.rearLeg);
+    final heel = _add(a, _dir(fa), -3.0);
+    final calf = _add(_add(k, _dir(sa), 13 * ss), _dir(sa - 90), 1.8);
+    parts.add(_Part(
+      _union([
+        _capsule(h, 9.6, k, 6.0),
+        _capsule(k, 6.3, a, 3.7),
+        _capsule(k, 5.8, calf, 6.4),
+        _capsule(calf, 6.0, a, 3.7),
+        _capsule(heel, 3.8, toe, 2.4),
+      ]),
+      c.$1, c.$2, c.$3,
+      glow: c.$4,
+    ));
+    // shorts leg
+    final td = _dir(ta);
+    final end = _add(h, td, math.min(24.0, 44 * ts * 0.55));
+    final shCol = lead ? _shorts : _shortsRear;
+    parts.add(_Part(
+      _capsule(h, 10.4, end, 8.4),
+      shCol, shCol,
+      lead ? const Color(0xFF22324F) : const Color(0xFF141E33),
+      stripes: [
+        _Stripe(_line(_add(h, td, 4), _add(end, td, -2)),
+            lead ? _stripe : const Color(0xFF2A6C8E), 1.8),
+      ],
+    ));
+  }
+
+  void arm(bool lead) {
+    final sp = lead ? j.lShoulder : j.rShoulder;
+    final e = lead ? j.lElbow : j.rElbow;
+    final w = lead ? j.lHand : j.rHand;
+    final fa = lead ? p.lf : p.rf;
+    final limb = lead ? Limb.leadArm : Limb.rearArm;
+    final c = cols(lead, limb);
+    parts.add(_Part(
+      _union([_capsule(sp, 7.0, e, 4.8), _capsule(e, 5.0, w, 3.8)]),
+      c.$1, c.$2, c.$3,
+      glow: c.$4,
+    ));
+    final fd = _dir(fa);
+    final side = _dir(fa + 90);
+    final gc = _add(w, fd, 4.6);
+    final glove = _union([
+      _capsule(_add(gc, fd, -2.6), 8.2, _add(gc, fd, 3.0), 7.4),
+      _capsule(_add(gc, side, 5.5), 3.2, _add(_add(gc, fd, 2), side, 6.2), 2.8),
+    ]);
+    final isActive = active == limb;
+    final g = isActive
+        ? (const Color(0xFFFF9EA3), const Color(0xFFE0263A), Colors.white)
+        : lead
+            ? (_gloveA, _gloveB, const Color(0xFFFFC2C4))
+            : (_gloveRA, _gloveRB, const Color(0xFFD06A70));
+    final cuffC = _add(w, fd, 0.4);
+    parts.add(_Part(
+      glove, g.$1, g.$2, g.$3,
+      glow: isActive,
+      stripes: [
+        _Stripe(_line(_add(cuffC, side, 5.6), _add(cuffC, side, -5.6)),
+            const Color(0xFF5A0810), 2.2),
+      ],
+    ));
+  }
+
+  // The striking limb is drawn in front of everything.
+  final rearLegFront = active == Limb.rearLeg;
+  final rearArmFront = active == Limb.rearArm;
+  if (!rearLegFront) leg(false);
+  if (!rearArmFront) arm(false);
+
+  // Body: torso + neck + head as one silhouette
+  final head = j.head;
+  final hu = _dir(p.t + p.hd);
+  final hn = _dir(p.t + p.hd - 90);
+  final skull = Path()..addOval(Rect.fromCircle(center: head, radius: 10.2));
+  final jaw = _capsule(_add(_add(head, hu, -6.5), hn, 2.5), 6.0,
+      _add(_add(head, hu, -2.5), hn, 6.0), 5.4);
+  final neck = _capsule(_add(j.hip, u, 45), 5.6, _add(head, hu, -6), 4.6);
+  final torso = _profile(j.hip, p.t, const [
+    [-6, 9.0, 11.0],
+    [4, 10.0, 12.0],
+    [17, 8.6, 8.2],
+    [29, 13.6, 9.6],
+    [40, 12.6, 10.4],
+    [47, 7.5, 8.0],
+  ]);
+  final band = _line(_add(_add(head, hu, 3.5), hn, 12), _add(_add(head, hu, 3.5), hn, -12));
+  final tail = Path()
+    ..moveTo(_add(_add(head, hu, 3.5), hn, -9).dx, _add(_add(head, hu, 3.5), hn, -9).dy)
+    ..quadraticBezierTo(
+      _add(_add(head, hu, 0), hn, -17).dx,
+      _add(_add(head, hu, 0), hn, -17).dy,
+      _add(_add(head, hu, -6), hn, -19).dx,
+      _add(_add(head, hu, -6), hn, -19).dy,
+    );
+  parts.add(_Part(
+    _union([torso, neck, skull, jaw]),
+    _bodyA, _bodyB, const Color(0xFFA8F0FF),
+    stripes: [_Stripe(band, _stripe, 3.0)],
+    after: [_Stripe(tail, _stripe, 2.6)],
+  ));
+
+  final waist = _add(j.hip, u, 10.5);
+  parts.add(_Part(
+    _profile(j.hip, p.t, const [
+      [-7, 9.5, 11.5],
+      [4, 10.2, 12.2],
+      [11, 9.0, 10.0],
+    ]),
+    _shorts, _shorts, const Color(0xFF22324F),
+    stripes: [_Stripe(_line(_add(waist, fw, 9.4), _add(waist, fw, -10.6)), _stripe, 2.4)],
+  ));
+
+  leg(true);
+  arm(true);
+  if (rearLegFront) leg(false);
+  if (rearArmFront) arm(false);
+  return parts;
+}
 
 class FighterPainter extends CustomPainter {
   FighterPainter({
@@ -239,7 +485,8 @@ class FighterPainter extends CustomPainter {
     this.trail = const [],
     this.arrows = const [],
     this.arrowOpacity = 1,
-    this.ghost,
+    this.impact = 0,
+    this.impactPoint,
   });
 
   final Pose pose;
@@ -248,185 +495,161 @@ class FighterPainter extends CustomPainter {
   final List<Arrow> arrows;
   final double arrowOpacity;
 
-  /// Optional faint pose drawn behind (e.g. the guard while striking).
-  final Pose? ghost;
-
-  static const _rear = Color(0xFF1E4FA6);
-  static const _lead = Color(0xFF4A9EFF);
-  static const _body = Color(0xFF5FB0FF);
+  /// 0..1 strength of the hit flash drawn at [impactPoint].
+  final double impact;
+  final Offset? impactPoint;
 
   @override
   void paint(Canvas canvas, Size size) {
     final s = math.min(size.width / _box.width, size.height / _box.height);
     final ox = (size.width - _box.width * s) / 2;
     final oy = (size.height - _box.height * s) / 2;
-    Offset m(Offset p) =>
-        Offset(ox + (p.dx - _box.left) * s, oy + (_box.bottom - p.dy) * s);
+    canvas.save();
+    canvas.translate(ox - _box.left * s, oy + _box.bottom * s);
+    canvas.scale(s, -s); // model space, y up
 
-    // Floor
-    final floorY = m(Offset.zero).dy;
-    final floor = Paint()
-      ..shader = ui.Gradient.linear(
-        Offset(0, floorY),
-        Offset(size.width, floorY),
-        [
-          Colors.transparent,
-          AppColors.blue.withValues(alpha: 0.55),
-          Colors.transparent,
-        ],
-        [0, 0.5, 1],
-      )
-      ..strokeWidth = 1.5 * s;
-    canvas.drawLine(Offset(0, floorY), Offset(size.width, floorY), floor);
-
-    final j = Joints(pose);
-    final hipX = m(j.hip).dx;
-    canvas.drawOval(
-      Rect.fromCenter(
-          center: Offset(hipX, floorY), width: 70 * s, height: 7 * s),
+    // floor line + shadow
+    canvas.drawLine(
+      Offset(_box.left, 0),
+      Offset(_box.right, 0),
       Paint()
-        ..color = AppColors.blue.withValues(alpha: 0.22)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 4 * s),
+        ..shader = ui.Gradient.linear(
+          Offset(_box.left, 0),
+          Offset(_box.right, 0),
+          [Colors.transparent, AppColors.blue.withValues(alpha: 0.5), Colors.transparent],
+          [0, 0.5, 1],
+        )
+        ..strokeWidth = 1.2,
+    );
+    final j = Joints(pose);
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(j.hip.dx, 0), width: 84, height: 7),
+      Paint()
+        ..color = const Color(0x882E7BFF)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
 
-    if (ghost != null) _figure(canvas, Joints(ghost!), m, s, ghostMode: true);
-
-    // Arrows (direction hints)
     if (arrowOpacity > 0) {
       for (final a in arrows) {
-        _arrow(canvas, a, m, s, arrowOpacity);
+        _arrow(canvas, a, arrowOpacity);
       }
     }
 
-    // Motion trail
     if (trail.length > 1) {
       for (var i = 1; i < trail.length; i++) {
         final f = 1 - i / trail.length;
         canvas.drawLine(
-          m(trail[i - 1]),
-          m(trail[i]),
+          trail[i - 1],
+          trail[i],
           Paint()
-            ..color = AppColors.cyan.withValues(alpha: 0.55 * f)
-            ..strokeWidth = (9 * f + 1) * s
-            ..strokeCap = StrokeCap.round,
-        );
-      }
-    }
-
-    _figure(canvas, j, m, s);
-  }
-
-  void _figure(Canvas canvas, Joints j, Offset Function(Offset) m, double s,
-      {bool ghostMode = false}) {
-    Color c(Color base, Limb limb) {
-      if (ghostMode) return Colors.white.withValues(alpha: 0.07);
-      return highlight == limb ? AppColors.cyan : base;
-    }
-
-    final bodyCol = ghostMode ? Colors.white.withValues(alpha: 0.07) : _body;
-
-    void seg(Offset a, Offset b, double w, Color col, {bool glow = false}) {
-      if (glow && !ghostMode) {
-        canvas.drawLine(
-          m(a),
-          m(b),
-          Paint()
-            ..color = col.withValues(alpha: 0.45)
-            ..strokeWidth = (w + 8) * s
+            ..color = AppColors.cyan.withValues(alpha: 0.5 * f)
+            ..strokeWidth = 12 * f + 1
             ..strokeCap = StrokeCap.round
-            ..maskFilter = MaskFilter.blur(BlurStyle.normal, 5 * s),
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
         );
       }
-      canvas.drawLine(
-        m(a),
-        m(b),
-        Paint()
-          ..color = col
-          ..strokeWidth = w * s
-          ..strokeCap = StrokeCap.round,
-      );
     }
 
-    void dot(Offset p, double r, Color col, {bool glow = false}) {
-      if (glow && !ghostMode) {
-        canvas.drawCircle(
-          m(p),
-          (r + 5) * s,
-          Paint()
-            ..color = col.withValues(alpha: 0.5)
-            ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 * s),
-        );
-      }
-      canvas.drawCircle(m(p), r * s, Paint()..color = col);
-    }
+    _figure(canvas);
 
-    // Rear side (behind)
-    final ra = c(_rear, Limb.rearArm);
-    final rl = c(_rear, Limb.rearLeg);
-    final rlGlow = highlight == Limb.rearLeg;
-    final raGlow = highlight == Limb.rearArm;
-    seg(j.rHip, j.rKnee, 11, rl, glow: rlGlow);
-    seg(j.rKnee, j.rAnkle, 9, rl, glow: rlGlow);
-    seg(j.rAnkle, j.rToe, 6, rl);
-    seg(j.rShoulder, j.rElbow, 9, ra, glow: raGlow);
-    seg(j.rElbow, j.rHand, 8, ra, glow: raGlow);
-    dot(j.rHand, 8.5, ra, glow: raGlow);
-
-    // Body
-    seg(j.hip, j.neck, 15, bodyCol);
-    dot(j.head, _headR, bodyCol);
-    if (!ghostMode) {
-      // belt
-      final fwd = _dir(pose.t - 90);
-      final belt = j.hip + _dir(pose.t) * 3;
-      seg(belt - fwd * 7, belt + fwd * 7, 4, const Color(0xFF0A1630));
-    }
-
-    // Lead side (front)
-    final la = c(_lead, Limb.leadArm);
-    final ll = c(_lead, Limb.leadLeg);
-    final llGlow = highlight == Limb.leadLeg;
-    final laGlow = highlight == Limb.leadArm;
-    seg(j.lHip, j.lKnee, 11, ll, glow: llGlow);
-    seg(j.lKnee, j.lAnkle, 9, ll, glow: llGlow);
-    seg(j.lAnkle, j.lToe, 6, ll);
-    seg(j.lShoulder, j.lElbow, 9, la, glow: laGlow);
-    seg(j.lElbow, j.lHand, 8, la, glow: laGlow);
-    dot(j.lHand, 8.5, la, glow: laGlow);
+    if (impact > 0 && impactPoint != null) _burst(canvas, impactPoint!, impact);
+    canvas.restore();
   }
 
-  void _arrow(Canvas canvas, Arrow a, Offset Function(Offset) m, double s,
-      double opacity) {
-    final p0 = m(Offset(a.x0, a.y0));
-    final c = m(Offset(a.cx, a.cy));
-    final p1 = m(Offset(a.x1, a.y1));
+  void _figure(Canvas canvas) {
+    final parts = _buildParts(pose, highlight);
+    for (final pt in parts) {
+      if (pt.glow) {
+        canvas.drawPath(
+          pt.path,
+          Paint()
+            ..color = const Color(0xAA35C8FF)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+        );
+      }
+    }
+    final gap = Paint()
+      ..color = _gapColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.6
+      ..strokeJoin = StrokeJoin.round;
+    for (final pt in parts) {
+      canvas.drawPath(pt.path, gap);
+      // Rim light: fill with the rim colour, then the gradient shifted away from the light.
+      canvas.save();
+      canvas.clipPath(pt.path);
+      canvas.drawPath(pt.path, Paint()..color = pt.rim);
+      canvas.translate(-1.5, -1.3);
+      canvas.drawPath(
+        pt.path,
+        Paint()..shader = ui.Gradient.linear(_lightA, _lightB, [pt.ca, pt.cb]),
+      );
+      canvas.restore();
+      if (pt.stripes.isNotEmpty) {
+        canvas.save();
+        canvas.clipPath(pt.path);
+        for (final st in pt.stripes) {
+          canvas.drawPath(st.path, _strokePaint(st));
+        }
+        canvas.restore();
+      }
+      for (final st in pt.after) {
+        canvas.drawPath(st.path, _strokePaint(st));
+      }
+    }
+  }
+
+  Paint _strokePaint(_Stripe st) => Paint()
+    ..color = st.color
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = st.width
+    ..strokeCap = StrokeCap.round;
+
+  void _burst(Canvas canvas, Offset c, double k) {
+    final r0 = 10 + (1 - k) * 8;
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.9 * k)
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 8; i++) {
+      final a = i * math.pi / 4 + 0.3;
+      final d = Offset(math.cos(a), math.sin(a));
+      canvas.drawLine(c + d * r0, c + d * (r0 + 6 + 4 * k), paint);
+    }
+    canvas.drawCircle(
+      c,
+      r0 - 2,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6
+        ..color = AppColors.cyan.withValues(alpha: 0.8 * k),
+    );
+  }
+
+  void _arrow(Canvas canvas, Arrow a, double opacity) {
+    final p0 = Offset(a.x0, a.y0), c = Offset(a.cx, a.cy), p1 = Offset(a.x1, a.y1);
     final path = Path()
       ..moveTo(p0.dx, p0.dy)
       ..quadraticBezierTo(c.dx, c.dy, p1.dx, p1.dy);
     final col = AppColors.gold.withValues(alpha: 0.9 * opacity);
-    // dashed curve
+    final stroke = Paint()
+      ..color = col
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
     for (final metric in path.computeMetrics()) {
       var d = 0.0;
-      final dash = 6 * s, gap = 4 * s;
       while (d < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(d, math.min(d + dash, metric.length)),
-          Paint()
-            ..color = col
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.2 * s
-            ..strokeCap = StrokeCap.round,
-        );
-        d += dash + gap;
+        canvas.drawPath(metric.extractPath(d, math.min(d + 5, metric.length)), stroke);
+        d += 8.5;
       }
     }
-    // arrow head, aligned with the curve's end tangent
     final dir = p1 - c;
     final len = dir.distance;
     if (len == 0) return;
     final u = dir / len;
     final n = Offset(-u.dy, u.dx);
-    final h = 7 * s;
+    const h = 6.5;
     final head = Path()
       ..moveTo(p1.dx + u.dx * h * 0.6, p1.dy + u.dy * h * 0.6)
       ..lineTo(p1.dx - u.dx * h + n.dx * h * 0.6, p1.dy - u.dy * h + n.dy * h * 0.6)
@@ -441,31 +664,26 @@ class FighterPainter extends CustomPainter {
 
 // ------------------------------------------------------------------ widgets
 
-/// A still pose (used for step-by-step frames).
+/// A still pose (used for cards and step-by-step frames).
 class FighterStill extends StatelessWidget {
   const FighterStill({
     super.key,
     required this.pose,
     this.highlight,
     this.arrows = const [],
-    this.ghost,
   });
 
   final Pose pose;
   final Limb? highlight;
   final List<Arrow> arrows;
-  final Pose? ghost;
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: FighterPainter(
-        pose: pose,
-        highlight: highlight,
-        arrows: arrows,
-        ghost: ghost,
+    return RepaintBoundary(
+      child: CustomPaint(
+        painter: FighterPainter(pose: pose, highlight: highlight, arrows: arrows),
+        size: Size.infinite,
       ),
-      size: Size.infinite,
     );
   }
 }
@@ -560,26 +778,31 @@ class _FighterAnimationState extends State<FighterAnimation>
     final clipIndex = _timeline.clipAt(_ms);
     final clip = clipIndex >= 0 ? _timeline.clips[clipIndex] : null;
     final limb = clip?.limb;
+    final knee = identical(clip, moveClips['knee']);
 
     final trail = <Offset>[];
     if (limb != null) {
-      final knee = clip == moveClips['knee'];
       for (var i = 0; i < 16; i++) {
         final t = _ms - i * 14 * widget.speed.clamp(0.25, 2.0);
         if (t < 0 || _timeline.clipAt(t) != clipIndex) break;
         trail.add(Joints(_timeline.poseAt(t)).effector(limb, knee: knee));
       }
     }
+    final impact = limb == null ? 0.0 : _timeline.impactAt(_ms);
 
-    return CustomPaint(
-      painter: FighterPainter(
-        pose: pose,
-        highlight: limb,
-        trail: trail,
-        arrows: widget.showArrows && clip != null ? clip.arrows : const [],
-        arrowOpacity: 0.85,
+    return RepaintBoundary(
+      child: CustomPaint(
+        painter: FighterPainter(
+          pose: pose,
+          highlight: limb,
+          trail: trail,
+          arrows: widget.showArrows && clip != null ? clip.arrows : const [],
+          arrowOpacity: 0.85,
+          impact: impact,
+          impactPoint: limb == null ? null : Joints(pose).effector(limb, knee: knee),
+        ),
+        size: Size.infinite,
       ),
-      size: Size.infinite,
     );
   }
 }
