@@ -73,7 +73,7 @@ void main() {
   }
 
   Future<void> push(WidgetTester tester, Widget page) async {
-    final ctx = tester.element(find.byType(NavigationBar));
+    final ctx = tester.element(find.byType(NavigationBar, skipOffstage: false));
     Navigator.of(ctx).push(MaterialPageRoute(builder: (_) => page));
     await tester.pump(const Duration(milliseconds: 600));
   }
