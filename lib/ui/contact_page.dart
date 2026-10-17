@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../club_info.dart';
@@ -90,28 +89,28 @@ class ContactPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _ContactTile(
-            icon: FontAwesomeIcons.instagram,
+            icon: const _InstagramGlyph(),
             colors: const [Color(0xFFF58529), Color(0xFFDD2A7B), Color(0xFF8134AF)],
             title: 'اینستاگرام',
             value: '@$instagramHandle',
             onTap: () => openLink(context, Uri.parse(instagramUrl), instagramUrl),
           ),
           _ContactTile(
-            icon: FontAwesomeIcons.telegram,
+            icon: Transform.rotate(angle: -0.5, child: const Icon(Icons.send, color: Colors.white, size: 22)),
             colors: const [Color(0xFF2AABEE), Color(0xFF229ED9)],
             title: 'تلگرام',
             value: '@$telegramHandle',
             onTap: () => openLink(context, Uri.parse(telegramUrl), '@$telegramHandle'),
           ),
           _ContactTile(
-            icon: FontAwesomeIcons.phone,
+            icon: const Icon(Icons.call, color: Colors.white, size: 22),
             colors: const [AppColors.blue, AppColors.blueDeep],
             title: 'تماس تلفنی',
             value: clubPhone,
             onTap: () => openLink(context, Uri(scheme: 'tel', path: clubPhone), clubPhone),
           ),
           _ContactTile(
-            icon: FontAwesomeIcons.commentSms,
+            icon: const Icon(Icons.sms, color: Colors.white, size: 22),
             colors: const [Color(0xFF3DDC97), Color(0xFF1E9E6A)],
             title: 'پیامک',
             value: clubPhone,
@@ -138,7 +137,7 @@ class _ContactTile extends StatelessWidget {
     required this.onTap,
   });
 
-  final IconData icon;
+  final Widget icon;
   final List<Color> colors;
   final String title;
   final String value;
@@ -163,7 +162,7 @@ class _ContactTile extends StatelessWidget {
                     borderRadius: BorderRadius.all(Radius.circular(10)),
                   ),
                 ),
-                child: Center(child: FaIcon(icon, color: Colors.white, size: 22)),
+                child: Center(child: icon),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -187,4 +186,39 @@ class _ContactTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Simple Instagram-style glyph: rounded square, lens and flash dot.
+class _InstagramGlyph extends StatelessWidget {
+  const _InstagramGlyph();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(width: 22, height: 22, child: CustomPaint(painter: _InstaPainter()));
+  }
+}
+
+class _InstaPainter extends CustomPainter {
+  const _InstaPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final p = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.1;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.05, w * 0.05, w * 0.9, w * 0.9),
+        Radius.circular(w * 0.26),
+      ),
+      p,
+    );
+    canvas.drawCircle(Offset(w / 2, w / 2), w * 0.21, p);
+    canvas.drawCircle(Offset(w * 0.74, w * 0.26), w * 0.06, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
