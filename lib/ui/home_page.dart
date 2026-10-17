@@ -211,7 +211,7 @@ class _Hero extends StatelessWidget {
           Positioned(
             left: -40,
             right: -40,
-            bottom: 70,
+            bottom: 118,
             child: Transform.rotate(
               angle: -0.12,
               child: Container(

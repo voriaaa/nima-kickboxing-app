@@ -96,7 +96,13 @@ class ContactPage extends StatelessWidget {
             onTap: () => openLink(context, Uri.parse(instagramUrl), instagramUrl),
           ),
           _ContactTile(
-            icon: Transform.rotate(angle: -0.5, child: const Icon(Icons.send, color: Colors.white, size: 22)),
+            icon: Directionality(
+              textDirection: TextDirection.ltr,
+              child: Transform.rotate(
+                angle: -0.45,
+                child: const Icon(Icons.send, color: Colors.white, size: 22),
+              ),
+            ),
             colors: const [Color(0xFF2AABEE), Color(0xFF229ED9)],
             title: 'تلگرام',
             value: '@$telegramHandle',
