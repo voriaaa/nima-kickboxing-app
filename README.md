@@ -34,7 +34,7 @@
 python3 tool/poses.py preview /tmp/preview   # تصویر همه‌ی ژست‌ها برای بررسی
 python3 tool/poses.py dart                   # بازسازی lib/moves/pose_data.g.dart
 python3 tool/figure_preview.py /tmp/f.png jab rhigh   # پیش‌نمایش ظاهر فیگور (pip install skia-python)
-python3 tool/make_icon.py                    # آیکن اپ از روی ژست های کیک
+python3 tool/make_icon.py                    # آیکن اپ (مشت با باند بوکس)
 ```
 
 ظاهر فیگور (بدن، شورت، دستکش، نور لبه) در `lib/moves/fighter.dart` و هم‌زمان در
